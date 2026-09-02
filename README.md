@@ -35,3 +35,13 @@ cat > ARCHITECTURE.md << 'EOF'
 ## Authorization
 - Only "owner" can activate a skill
 - Simulated actor-based check
+
+## Note on Docker Compose
+
+Dockerfile and docker-compose.yml are included and believed correct based on the
+application's dependencies (see Setup section for equivalent local run instructions).
+However, they were not fully verified to run in this development environment due to
+a broken system package repository (ChromeOS/Crostini `cros-packages` signing key
+issue unrelated to this project) preventing local Docker installation. The application
+has been fully verified via direct `uvicorn` execution and `pytest`, both documented
+above with real output.
