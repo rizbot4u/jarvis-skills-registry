@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app import crud, schemas, models
 from app.database import SessionLocal, engine
+from app.auth import get_current_org_id, get_current_user
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -15,16 +16,14 @@ def get_db():
     finally:
         db.close()
 
-def get_current_org(org_id: Optional[int] = Header(None, alias="X-Organization-ID")):
-    if org_id is None:
-        raise HTTPException(status_code=400, detail="X-Organization-ID header required")
-    return org_id
+# ============================================================
+# IMPORTANT: /skills/active MUST come BEFORE /skills/{skill_id}
+# ============================================================
 
-# 1. Active skills route (MUST come before /skills/{skill_id})
 @router.get("/skills/active", response_model=List[schemas.Skill])
 def get_active_skills(
     db: Session = Depends(get_db),
-    org_id: int = Depends(get_current_org)
+    org_id: int = Depends(get_current_org_id)
 ):
     return db.query(models.Skill).filter(
         models.Skill.organization_id == org_id,
@@ -35,14 +34,14 @@ def get_active_skills(
 def create_skill(
     skill: schemas.SkillCreate,
     db: Session = Depends(get_db),
-    org_id: int = Depends(get_current_org)
+    org_id: int = Depends(get_current_org_id)
 ):
     return crud.create_skill(db, skill, org_id)
 
 @router.get("/skills", response_model=List[schemas.Skill])
 def list_skills(
     db: Session = Depends(get_db),
-    org_id: int = Depends(get_current_org)
+    org_id: int = Depends(get_current_org_id)
 ):
     return crud.get_skills(db, org_id)
 
@@ -50,7 +49,7 @@ def list_skills(
 def get_skill(
     skill_id: int,
     db: Session = Depends(get_db),
-    org_id: int = Depends(get_current_org)
+    org_id: int = Depends(get_current_org_id)
 ):
     skill = crud.get_skill(db, skill_id, org_id)
     if not skill:
@@ -63,7 +62,7 @@ def create_version(
     skill_id: int,
     version: schemas.SkillVersionCreate,
     db: Session = Depends(get_db),
-    org_id: int = Depends(get_current_org)
+    org_id: int = Depends(get_current_org_id)
 ):
     skill = crud.get_skill(db, skill_id, org_id)
     if not skill:
@@ -78,14 +77,15 @@ def create_version(
 def activate_skill(
     skill_id: int,
     version_id: int,
-    actor: str,
     db: Session = Depends(get_db),
-    org_id: int = Depends(get_current_org)
+    current_user: dict = Depends(get_current_user)
 ):
+    org_id = current_user["org_id"]
+    actor = current_user["sub"]
     skill = crud.get_skill(db, skill_id, org_id)
     if not skill:
         raise HTTPException(status_code=404, detail="Skill not found")
-    if actor != "owner":
+    if current_user["role"] != "owner":
         raise HTTPException(status_code=403, detail="Only owner can activate")
     version = crud.get_version(db, version_id)
     if not version or version.skill_id != skill_id:
@@ -103,7 +103,7 @@ def activate_skill(
 def disable_skill(
     skill_id: int,
     db: Session = Depends(get_db),
-    org_id: int = Depends(get_current_org)
+    org_id: int = Depends(get_current_org_id)
 ):
     skill = crud.get_skill(db, skill_id, org_id)
     if not skill:

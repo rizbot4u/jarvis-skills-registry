@@ -13,7 +13,7 @@ class Organization(OrganizationBase):
     model_config = ConfigDict(from_attributes=True)
 
 class SkillBase(BaseModel):
-    name: str = Field(..., min_length=1)  # Enforce non-empty
+    name: str = Field(..., min_length=1, description="Skill name is required")
     description: Optional[str] = None
 
 class SkillCreate(SkillBase):
