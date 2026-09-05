@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from app.routes import skills
+from app.routers import execution
 from app.database import SessionLocal, engine
 from app import models
 from app.auth import create_access_token, authenticate_user
@@ -11,6 +12,7 @@ models.Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Jarvis AI COO Skill Registry")
 
 app.include_router(skills.router)
+app.include_router(execution.router)
 
 def get_db():
     db = SessionLocal()

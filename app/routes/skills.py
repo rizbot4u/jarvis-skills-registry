@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List
 from app import crud, schemas, models
 from app.database import SessionLocal, engine
 from app.auth import get_current_org_id, get_current_user
+import json
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -16,9 +17,25 @@ def get_db():
     finally:
         db.close()
 
-# ============================================================
-# IMPORTANT: /skills/active MUST come BEFORE /skills/{skill_id}
-# ============================================================
+def validate_payload(config_str: str, payload: dict) -> dict:
+    try:
+        config = json.loads(config_str) if isinstance(config_str, str) else config_str
+        schema = config.get("parameters_schema", {})
+        
+        # Check required fields if schema has them
+        if "required" in schema:
+            for field in schema["required"]:
+                if field not in payload:
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"Missing required field: {field}"
+                    )
+        return payload
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=500,
+            detail="Invalid skill configuration"
+        )
 
 @router.get("/skills/active", response_model=List[schemas.Skill])
 def get_active_skills(
@@ -121,3 +138,50 @@ def create_organization(
     db: Session = Depends(get_db)
 ):
     return crud.create_organization(db, org)
+
+# ============================================================
+# EXECUTE SKILL WITH SCHEMA VALIDATION
+# ============================================================
+
+@router.post("/skills/{skill_id}/execute")
+def execute_skill(
+    skill_id: int,
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    org_id = current_user["org_id"]
+    actor = current_user["sub"]
+    
+    skill = crud.get_skill(db, skill_id, org_id)
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    
+    if skill.status != "active":
+        raise HTTPException(status_code=400, detail=f"Skill is not active (status: {skill.status})")
+    
+    if not skill.active_version_id:
+        raise HTTPException(status_code=400, detail="Skill has no active version")
+    
+    version = crud.get_version(db, skill.active_version_id)
+    if not version:
+        raise HTTPException(status_code=404, detail="Active version not found")
+    
+    # Validate payload against schema
+    try:
+        validated_input = validate_payload(version.configuration, payload)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    
+    # Log execution
+    crud.log_action(db, org_id, actor, f"executed_skill_{skill_id}", version.id)
+    
+    return {
+        "skill": skill.name,
+        "status": "executed",
+        "result": "Skill executed with validation",
+        "input": validated_input,
+        "executed_by": actor,
+        "organization_id": org_id,
+        "version": version.version_number
+    }
