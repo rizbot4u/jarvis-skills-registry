@@ -145,3 +145,53 @@ Dockerfile and docker-compose.yml are included and believed correct based on the
 
 AI Tools Used
 Used AI as a pair-programming aid for scaffolding FastAPI routes, SQLAlchemy models, and test cases. All architecture decisions, testing strategy, and debugging were done and understood by the author, verified by manually re-tracing the full workflow through the Swagger UI.
+## 🤖 LLM Agent Orchestrator
+
+Jarvis includes a built-in Agent Orchestrator endpoint (`POST /agent/run`) that connects user prompts directly to active organization skills.
+
+### How it works:
+1. **Tool Discovery:** Dynamically retrieves active skills for the authenticated user's organization (`GET /skills/active`).
+2. **Schema Translation:** Converts active skill schemas into standard LLM function-calling declarations.
+3. **Execution Pipeline:** Passes the selected tool call and arguments to `POST /skills/{id}/execute` for JSON Schema validation and execution.
+
+### Example Request (`POST /agent/run`)
+
+```json
+{
+  "prompt": "Approve invoice #12345",
+  "payload": {
+    "skill_id": 1,
+    "arguments": {
+      "invoice_id": 12345,
+      "amount": 250.0
+    }
+  }
+}
+Response
+JSON
+
+
+{
+  "prompt": "Approve invoice #12345",
+  "selected_skill_id": 1,
+  "execution_response": {
+    "skill": "Invoice Approver",
+    "status": "executed",
+    "result": "Skill executed with validation",
+    "input": {
+      "invoice_id": 12345,
+      "amount": 250.0
+    },
+    "executed_by": "owner1",
+    "organization_id": 1,
+    "version": 1
+  }
+}
+
+---
+
+<ElicitationsGroup message="Where would you like to take the project next?">
+  <Elicitation label="Connect a real LLM API (OpenAI / Gemini) to auto-select tools" query="Show me how to connect a live OpenAI or Gemini API call inside agent_orchestrator.py to dynamically pick tools based on user prompt."/>
+  <Elicitation label="Add database migrations using Alembic" query="Help me set up Alembic database migrations for the skill registry project."/>
+  <Elicitation label="Write automated Pytest unit tests for the agent orchestrator" query="Write Pytest test cases to automatically verify POST /agent/run with mock tools and execution errors."/>
+</ElicitationsGroup>
