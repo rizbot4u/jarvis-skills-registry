@@ -3,70 +3,145 @@
 Multi-tenant backend prototype for the Jarvis AI COO developer evaluation. Organizations can create, review, and activate custom AI skills with strict tenant isolation, immutable versioning, and full audit logging.
 
 ## Tech Stack
+
 - FastAPI
 - SQLAlchemy
 - SQLite (see Architecture Decisions for reasoning)
 - Pytest
+- JWT Authentication (OAuth2 + bcrypt)
 
 ## Setup
 
 ### Option 1 — Local (Python)
+
+```bash
 pip install -r requirements.txt
 uvicorn app.main:app --reload
+Option 2 — Docker Compose
+Bash
 
-API docs available at: http://127.0.0.1:8000/docs
 
-### Option 2 — Docker Compose
 docker compose up --build
+Running Tests
+Bash
 
-See "Note on Docker Compose" below for a known limitation regarding local verification.
 
-## Running Tests
 pytest -v
-
 Expected: 10/10 tests passing.
 
-## Environment Variables
-Copy .env.example to .env and fill in real values. No secrets are committed to this repo.
+Authentication
+This system uses JWT (JSON Web Tokens) with bcrypt password hashing.
 
-## API Examples
+Seed Test Users
+Bash
 
-Create an organization:
-curl -X 'POST' 'http://127.0.0.1:8000/organizations' -H 'Content-Type: application/json' -d '{"name": "ABC Construction", "description": "Fixture org"}'
 
-Create a skill draft:
-curl -X 'POST' 'http://127.0.0.1:8000/skills' -H 'X-Organization-ID: 1' -H 'Content-Type: application/json' -d '{"name": "Invoice Approval Skill", "description": "Automates invoice review"}'
+python seed_users.py
+This creates:
 
-Create a new version:
-curl -X 'POST' 'http://127.0.0.1:8000/skills/1/versions' -H 'X-Organization-ID: 1' -H 'Content-Type: application/json' -d '{"version_number": 0, "configuration": "some-config", "created_by": "owner"}'
+owner1 / password123 (organization 1, owner role)
 
-Activate a version (owner only):
-curl -X 'POST' 'http://127.0.0.1:8000/skills/1/activate?version_id=1&actor=owner' -H 'X-Organization-ID: 1'
+user1 / password123 (organization 1, user role)
 
-List active skills:
-curl -X 'GET' 'http://127.0.0.1:8000/skills/active' -H 'X-Organization-ID: 1'
+owner2 / password123 (organization 2, owner role)
 
-Disable a skill:
-curl -X 'DELETE' 'http://127.0.0.1:8000/skills/1' -H 'X-Organization-ID: 1'
+Get a Token
+Bash
 
-## Architecture Decisions
+
+curl -X POST http://localhost:8000/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=owner1&password=password123"
+Response:
+
+JSON
+
+
+{"access_token":"eyJhbGciOiJIUzI1NiIs...","token_type":"bearer"}
+Use the Token
+Bash
+
+
+TOKEN="your_token_here"
+
+curl -X GET http://localhost:8000/skills \
+  -H "Authorization: Bearer $TOKEN"
+API Examples
+Create an Organization
+Bash
+
+
+curl -X POST http://localhost:8000/organizations \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "ABC Construction"}'
+Create a Skill Draft
+Bash
+
+
+curl -X POST http://localhost:8000/skills \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Invoice Approval Skill", "description": "Automates invoice review"}'
+Create a New Version
+Bash
+
+
+curl -X POST http://localhost:8000/skills/1/versions \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"version_number": 1, "configuration": "{\"parameters_schema\": {\"type\": \"object\", \"properties\": {\"invoice_id\": {\"type\": \"integer\"}}, \"required\": [\"invoice_id\"]}}", "created_by": "owner"}'
+Activate a Version (Owner Only)
+Bash
+
+
+curl -X POST "http://localhost:8000/skills/1/activate?version_id=1" \
+  -H "Authorization: Bearer $TOKEN"
+Execute a Skill (With Schema Validation)
+Bash
+
+
+curl -X POST http://localhost:8000/skills/1/execute \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"invoice_id": 12345}'
+List Active Skills
+Bash
+
+
+curl -X GET http://localhost:8000/skills/active \
+  -H "Authorization: Bearer $TOKEN"
+Disable a Skill
+Bash
+
+
+curl -X DELETE http://localhost:8000/skills/1 \
+  -H "Authorization: Bearer $TOKEN"
+Architecture Decisions
 See ARCHITECTURE.md in this repo.
 
-## Known Limitations
-- Authorization is simulated via an X-Organization-ID header and an actor field rather than real session/JWT-based authentication.
-- SQLite is used for local development and portability; PostgreSQL is recommended for production.
-- Database schema is auto-created by SQLAlchemy on startup rather than managed via a separate migration tool.
-- No pagination or filtering implemented on list endpoints.
+Known Limitations
+Authorization is handled via JWT with bcrypt password hashing. The X-Organization-ID header and actor query parameter are no longer used.
 
-## What I Would Implement Next
-- Real authentication (JWT or session-based)
-- Alembic migrations for schema versioning
-- PostgreSQL as the default datastore
-- Pagination and filtering on list endpoints
-- Role-based permissions beyond a single owner flag
+SQLite is used for local development and portability; PostgreSQL is recommended for production.
 
-## Note on Docker Compose
+Database schema is auto-created by SQLAlchemy on startup rather than managed via a separate migration tool.
+
+No pagination or filtering implemented on list endpoints.
+
+What I Would Implement Next
+Alembic migrations for schema versioning
+
+PostgreSQL as the default datastore
+
+Pagination and filtering on list endpoints
+
+Refresh tokens for extended sessions
+
+Frontend dashboard for managing skills
+
+Note on Docker Compose
 Dockerfile and docker-compose.yml are included and believed correct based on the application's dependencies. They were not fully verified to run in this development environment due to a broken system package repository (ChromeOS/Crostini cros-packages signing key issue unrelated to this project) preventing local Docker installation. The application has been fully verified via direct uvicorn execution and pytest, both documented above with real output.
 
-## AI Tools Used
+AI Tools Used
 Used AI as a pair-programming aid for scaffolding FastAPI routes, SQLAlchemy models, and test cases. All architecture decisions, testing strategy, and debugging were done and understood by the author, verified by manually re-tracing the full workflow through the Swagger UI.
