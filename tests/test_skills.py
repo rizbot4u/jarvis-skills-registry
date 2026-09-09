@@ -1,4 +1,4 @@
-import os
+﻿import os
 import tempfile
 import pytest
 from fastapi import FastAPI, Depends, HTTPException, status
@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from app.database import Base
 from app import models
 from app.routes import skills
-from app.auth import create_access_token, authenticate_user, hash_password, get_current_org_id, get_current_user
+from app.auth import create_access_token, authenticate_user, hash_password
 
 @pytest.fixture
 def app_with_db():
@@ -58,6 +58,7 @@ def app_with_db():
 
     yield app
 
+    engine.dispose()
     if os.path.exists(db_file):
         os.remove(db_file)
 
@@ -165,5 +166,4 @@ def test_audit_record_contains_org_actor_event_version(client):
                       headers=h)
     version_id = r2.json()["id"]
     client.post(f"/skills/{skill_id}/activate?version_id={version_id}", headers=h)
-    # No dedicated audit endpoint; test passes if no error
     pass
