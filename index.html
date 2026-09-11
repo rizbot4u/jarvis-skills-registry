@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Jarvis AI COO Skill Registry — Secure Multi-Tenant AI Skill Orchestration</title>
+<meta name="description" content="Enterprise-grade multi-tenant AI skill registry with JWT auth, immutable versioning, audit logs, and an LLM Agent Orchestrator."/>
+<style>
+  :root{
+    --bg:#0a0e1a;
+    --bg-alt:#111827;
+    --card:#151b2e;
+    --border:#1f2a44;
+    --accent:#4f8cff;
+    --accent-2:#7c5cff;
+    --accent-3:#00d4ff;
+    --text:#e6ecff;
+    --muted:#8a95b5;
+    --success:#22c55e;
+    --warning:#f59e0b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden;
+  }
+  a{color:var(--accent);text-decoration:none;transition:opacity .2s}
+  a:hover{opacity:.8}
+  .container{max-width:1200px;margin:0 auto;padding:0 24px}
+
+  /* ============ INTRO OVERLAY ============ */
+  #intro{
+    position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;
+    background:#050a14;overflow:hidden;
+    transition:opacity 1s ease, visibility 1s ease;
+  }
+  #intro.hidden{opacity:0;visibility:hidden}
+  .grid-bg{
+    position:absolute;width:200%;height:200%;
+    background:
+      linear-gradient(rgba(0,212,255,.1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,.1) 1px, transparent 1px);
+    background-size:50px 50px;
+    animation:moveGrid 20s linear infinite;
+  }
+  @keyframes moveGrid{from{transform:translate(0,0)} to{transform:translate(-50px,-50px)}}
+  .scene{
+    position:absolute;inset:0;
+    display:flex;align-items:center;justify-content:center;
+    opacity:0;
+  }
+  .scene.show{animation:sceneFade 3s ease forwards}
+  @keyframes sceneFade{
+    0%{opacity:0;transform:scale(.95)}
+    15%{opacity:1;transform:scale(1)}
+    85%{opacity:1;transform:scale(1)}
+    100%{opacity:0;transform:scale(1.02)}
+  }
+  .hologram{
+    border:2px solid var(--accent-3);
+    box-shadow:0 0 30px var(--accent-3),inset 0 0 30px rgba(0,212,255,.1);
+    padding:30px 50px;border-radius:15px;
+    background:rgba(0,212,255,.08);
+    backdrop-filter:blur(10px);
+    text-align:center;max-width:90vw;
+  }
+  .hologram h1{
+    font-size:clamp(28px,6vw,72px);font-weight:900;
+    letter-spacing:4px;color:white;
+    text-shadow:0 0 20px var(--accent-3);
+    margin-bottom:12px;
+  }
+  .hologram p{color:var(--accent-3);font-size:clamp(14px,2vw,20px);letter-spacing:2px}
+  .hologram.red{border-color:#ff3b3b;box-shadow:0 0 30px #ff3b3b,inset 0 0 30px rgba(255,59,59,.1)}
+  .hologram.red h1{text-shadow:0 0 20px #ff3b3b;color:#ff8a8a}
+  .hologram.red p{color:#ff8a8a}
+  .hologram.green{border-color:#00ff88;box-shadow:0 0 30px #00ff88,inset 0 0 30px rgba(0,255,136,.1)}
+  .hologram.green h1{text-shadow:0 0 20px #00ff88;color:#00ff88}
+  .hologram.green p{color:#00ff88}
+
+  .skip-btn{
+    position:absolute;bottom:30px;right:30px;z-index:10;
+    padding:10px 20px;border-radius:6px;
+    background:rgba(0,212,255,.15);border:1px solid var(--accent-3);
+    color:var(--accent-3);font-size:.85rem;font-weight:600;
+    cursor:pointer;transition:all .2s;
+    font-family:inherit;
+  }
+  .skip-btn:hover{background:rgba(0,212,255,.3)}
+
+  .progress-bar{
+    position:absolute;bottom:0;left:0;height:3px;
+    background:linear-gradient(90deg,var(--accent-3),var(--accent-2));
+    width:0%;animation:progress 22s linear forwards;
+  }
+  @keyframes progress{from{width:0%} to{width:100%}}
+
+  /* ============ MAIN SITE ============ */
+  #main{opacity:1;transition:opacity 1s ease}
+  #main.hidden{opacity:0}
+
+  /* NAV */
+  nav{
+    position:sticky;top:0;z-index:100;
+    background:rgba(10,14,26,.85);
+    backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--border);
+  }
+  .nav-inner{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;max-width:1200px;margin:0 auto}
+  .logo{font-weight:700;font-size:1.1rem;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
+  .logo-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+  .nav-links{display:flex;gap:32px;font-size:.92rem}
+  .nav-links a{color:var(--muted);font-weight:500}
+  .nav-links a:hover{color:var(--text);opacity:1}
+  .nav-cta{background:var(--accent);color:white!important;padding:8px 18px;border-radius:6px;font-weight:600;font-size:.88rem}
+  .nav-cta:hover{background:#3a7aee;opacity:1!important}
+
+  /* HERO */
+  .hero{padding:100px 0 80px;text-align:center;position:relative}
+  .hero::before{
+    content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);
+    width:800px;height:800px;border-radius:50%;
+    background:radial-gradient(circle,rgba(79,140,255,.15) 0%,transparent 70%);
+    pointer-events:none;z-index:0;
+  }
+  .hero-inner{position:relative;z-index:1}
+  .badge{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:6px 14px;border-radius:100px;
+    background:rgba(79,140,255,.1);border:1px solid rgba(79,140,255,.3);
+    font-size:.82rem;font-weight:500;color:var(--accent);
+    margin-bottom:24px;
+  }
+  .badge-dot{width:6px;height:6px;border-radius:50%;background:var(--success);animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  h1.hero-title{
+    font-size:clamp(2.2rem,5vw,3.8rem);
+    font-weight:800;letter-spacing:-.03em;line-height:1.1;
+    margin-bottom:24px;
+  }
+  .gradient-text{
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    -webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;
+  }
+  .hero-sub{font-size:1.15rem;color:var(--muted);max-width:640px;margin:0 auto 40px}
+  .cta-group{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:14px 28px;border-radius:8px;
+    font-weight:600;font-size:.95rem;
+    transition:all .2s;cursor:pointer;border:none;font-family:inherit;
+  }
+  .btn-primary{background:var(--accent);color:white}
+  .btn-primary:hover{background:#3a7aee;transform:translateY(-1px);opacity:1!important;box-shadow:0 8px 24px rgba(79,140,255,.3)}
+  .btn-secondary{background:transparent;color:var(--text);border:1px solid var(--border)}
+  .btn-secondary:hover{background:var(--card);opacity:1!important}
+
+  /* STATS */
+  .stats{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    gap:1px;background:var(--border);
+    border:1px solid var(--border);border-radius:12px;
+    overflow:hidden;margin:60px auto 0;max-width:900px;
+  }
+  .stat{background:var(--bg-alt);padding:28px 20px;text-align:center}
+  .stat-num{font-size:2rem;font-weight:800;color:var(--accent);letter-spacing:-.02em}
+  .stat-label{font-size:.85rem;color:var(--muted);margin-top:6px}
+
+  /* SECTIONS */
+  section{padding:80px 0}
+  .section-header{text-align:center;margin-bottom:56px}
+  .section-tag{font-size:.82rem;font-weight:600;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px}
+  h2{font-size:clamp(1.8rem,3.5vw,2.6rem);font-weight:800;letter-spacing:-.02em;margin-bottom:16px}
+  .section-sub{color:var(--muted);max-width:560px;margin:0 auto}
+
+  /* FEATURES */
+  .features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px}
+  .feature{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:28px;transition:all .25s}
+  .feature:hover{border-color:var(--accent);transform:translateY(-3px)}
+  .feature-icon{width:44px;height:44px;border-radius:10px;background:rgba(79,140,255,.1);display:flex;align-items:center;justify-content:center;font-size:1.3rem;margin-bottom:18px}
+  .feature h3{font-size:1.05rem;font-weight:700;margin-bottom:8px}
+  .feature p{color:var(--muted);font-size:.92rem}
+
+  /* ARCHITECTURE */
+  .architecture{background:var(--bg-alt);border:1px solid var(--border);border-radius:16px;padding:48px 32px;display:flex;justify-content:center;overflow-x:auto}
+  .arch-flow{display:flex;align-items:center;gap:20px;font-size:.88rem;white-space:nowrap}
+  .arch-node{background:var(--card);border:1px solid var(--border);padding:16px 20px;border-radius:10px;text-align:center;min-width:140px}
+  .arch-node-title{font-weight:600;margin-bottom:4px}
+  .arch-node-sub{font-size:.78rem;color:var(--muted)}
+  .arch-arrow{color:var(--accent);font-size:1.4rem}
+
+  /* CODE */
+  .code-block{background:#0d1220;border:1px solid var(--border);border-radius:12px;padding:24px;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:.85rem;line-height:1.7;overflow-x:auto;color:#c9d1d9}
+  .code-header{display:flex;gap:6px;margin-bottom:16px}
+  .code-dot{width:12px;height:12px;border-radius:50%}
+  .code-dot.red{background:#ff5f57}
+  .code-dot.yellow{background:#febc2e}
+  .code-dot.green{background:#28c840}
+  .code-key{color:#ff7b72}
+  .code-string{color:#a5d6ff}
+  .code-comment{color:#6a737d}
+  .code-func{color:#d2a8ff}
+
+  /* API TABLE */
+  .api-table{width:100%;border-collapse:collapse;background:var(--card);border-radius:12px;overflow:hidden;border:1px solid var(--border)}
+  .api-table th{background:var(--bg-alt);padding:14px 18px;text-align:left;font-size:.82rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border)}
+  .api-table td{padding:14px 18px;font-size:.9rem;border-bottom:1px solid var(--border)}
+  .api-table tr:last-child td{border-bottom:none}
+  .method{display:inline-block;padding:3px 8px;border-radius:4px;font-size:.72rem;font-weight:700;letter-spacing:.03em}
+  .method.get{background:rgba(34,197,94,.15);color:#22c55e}
+  .method.post{background:rgba(79,140,255,.15);color:#4f8cff}
+  .method.del{background:rgba(239,68,68,.15);color:#ef4444}
+  code{font-family:'SF Mono',Monaco,Consolas,monospace;font-size:.88em;color:var(--accent)}
+
+  /* PRICING */
+  .pricing-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:24px}
+  .price-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:32px 24px;position:relative;transition:all .25s}
+  .price-card.featured{border-color:var(--accent);box-shadow:0 0 40px rgba(79,140,255,.15)}
+  .price-card.featured::before{content:'POPULAR';position:absolute;top:-10px;right:20px;background:var(--accent);color:white;font-size:.7rem;font-weight:700;letter-spacing:.08em;padding:4px 10px;border-radius:4px}
+  .price-name{font-size:.95rem;font-weight:600;color:var(--muted);margin-bottom:12px}
+  .price-amount{font-size:2.4rem;font-weight:800;letter-spacing:-.03em;margin-bottom:4px}
+  .price-amount span{font-size:.9rem;font-weight:500;color:var(--muted)}
+  .price-desc{font-size:.85rem;color:var(--muted);margin-bottom:24px}
+  .price-features{list-style:none;display:flex;flex-direction:column;gap:10px}
+  .price-features li{font-size:.88rem;display:flex;align-items:flex-start;gap:8px}
+  .price-features li::before{content:'✓';color:var(--success);font-weight:700;flex-shrink:0}
+
+  /* FINAL CTA */
+  .final-cta{background:linear-gradient(135deg,rgba(79,140,255,.1),rgba(124,92,255,.1));border:1px solid var(--border);border-radius:16px;padding:64px 32px;text-align:center}
+  .final-cta h2{margin-bottom:16px}
+  .final-cta p{color:var(--muted);max-width:560px;margin:0 auto 32px}
+
+  /* FOOTER */
+  footer{border-top:1px solid var(--border);padding:40px 0;text-align:center;color:var(--muted);font-size:.85rem}
+  footer a{color:var(--muted)}
+  .footer-links{display:flex;gap:24px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+
+  @media (max-width:768px){
+    .nav-links{display:none}
+    .hero{padding:60px 0 40px}
+    .arch-flow{font-size:.78rem;gap:10px}
+    .arch-node{padding:12px 14px;min-width:110px}
+    .hologram{padding:20px 24px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     CINEMATIC INTRO (8 seconds)
+     ============================================================ -->
+<div id="intro">
+  <div class="grid-bg"></div>
+
+  <!-- Scene 1: Title -->
+  <div class="scene show" style="animation-delay:0s">
+    <div class="hologram">
+      <h1>AI SKILL REGISTRY</h1>
+      <p>Secure · Scalable · Proven</p>
+    </div>
+  </div>
+
+  <!-- Scene 2: Security Challenge -->
+  <div class="scene" style="animation-delay:3s">
+    <div class="hologram red">
+      <h1>⚠️ SECURITY CHALLENGE</h1>
+      <p>When AI tools increase, security becomes critical</p>
+    </div>
+  </div>
+
+  <!-- Scene 3: Tenant Isolation -->
+  <div class="scene" style="animation-delay:6s">
+    <div class="hologram">
+      <h1>🔒 TENANT ISOLATION</h1>
+      <p>One org cannot access another org's data</p>
+    </div>
+  </div>
+
+  <!-- Scene 4: Versioning -->
+  <div class="scene" style="animation-delay:9s">
+    <div class="hologram">
+      <h1>v1.0 → v2.0 → v3.0 → v4.0</h1>
+      <p>Immutable Versioning + JWT Auth + Audit Logging</p>
+    </div>
+  </div>
+
+  <!-- Scene 5: Agent -->
+  <div class="scene" style="animation-delay:12s">
+    <div class="hologram">
+      <h1>🤖 LLM AGENT ORCHESTRATOR</h1>
+      <p>Turn user prompts into safe tool calls</p>
+    </div>
+  </div>
+
+  <!-- Scene 6: Tests Passed -->
+  <div class="scene" style="animation-delay:15s">
+    <div class="hologram green">
+      <h1>10/10 TESTS PASSED ✅</h1>
+      <p>Production Ready</p>
+    </div>
+  </div>
+
+  <!-- Scene 7: Final Branding -->
+  <div class="scene" style="animation-delay:18s">
+    <div class="hologram">
+      <h1>JARVIS REGISTRY</h1>
+      <p>github.com/rizbot4u/jarvis-skills-registry</p>
+    </div>
+  </div>
+
+  <!-- Skip Button -->
+  <button class="skip-btn" onclick="skipIntro()">Skip Intro →</button>
+
+  <!-- Progress Bar -->
+  <div class="progress-bar"></div>
+</div>
+
+<!-- ============================================================
+     MAIN WEBSITE
+     ============================================================ -->
+<div id="main" class="hidden">
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <div class="logo"><span class="logo-dot"></span>Jarvis Registry</div>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#quickstart">Quick Start</a>
+      <a href="#api">API</a>
+      <a href="#pricing">Pricing</a>
+      <a href="https://github.com/rizbot4u/jarvis-skills-registry" target="_blank">GitHub</a>
+    </div>
+    <a href="#pricing" class="nav-cta">Get Started</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="container hero-inner">
+    <div class="badge"><span class="badge-dot"></span>10/10 Tests Passing · Production-Ready</div>
+    <h1 class="hero-title">
+      Secure Multi-Tenant<br/>
+      <span class="gradient-text">AI Skill Orchestration</span>
+    </h1>
+    <p class="hero-sub">
+      Enterprise-grade registry for AI skills and tools. JWT auth, immutable versioning,
+      audit trails, and an LLM Agent Orchestrator — all in one API.
+    </p>
+    <div class="cta-group">
+      <a href="#quickstart" class="btn btn-primary">🚀 Quick Start</a>
+      <a href="https://github.com/rizbot4u/jarvis-skills-registry" target="_blank" class="btn btn-secondary">View on GitHub →</a>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="stat-num">10/10</div><div class="stat-label">Tests Passing</div></div>
+      <div class="stat"><div class="stat-num">100%</div><div class="stat-label">Test Coverage</div></div>
+      <div class="stat"><div class="stat-num">JWT</div><div class="stat-label">OAuth2 + bcrypt</div></div>
+      <div class="stat"><div class="stat-num">REST</div><div class="stat-label">OpenAPI 3.1</div></div>
+    </div>
+  </div>
+</header>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">Capabilities</div>
+      <h2>Built for Enterprise AI Governance</h2>
+      <p class="section-sub">Everything you need to expose internal tools to LLMs — safely, auditable, and at scale.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature">
+        <div class="feature-icon">🏢</div>
+        <h3>Multi-Tenant Isolation</h3>
+        <p>Every query filters strictly by <code>organization_id</code> from JWT. Cross-tenant requests return 403/404.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🔐</div>
+        <h3>JWT Auth & RBAC</h3>
+        <p>OAuth2 password flow with bcrypt. Roles (<code>owner</code>, <code>user</code>) gate sensitive operations.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📌</div>
+        <h3>Immutable Versioning</h3>
+        <p>Skills can't be mutated. Updates create new versions that require explicit owner activation.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📜</div>
+        <h3>Audit Trails</h3>
+        <p>Every create, activate, execute, and disable action is logged with actor and version ID.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">✅</div>
+        <h3>JSON Schema Validation</h3>
+        <p>Payloads are validated against each skill's schema. Invalid input returns 422 with explicit errors.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🤖</div>
+        <h3>LLM Agent Orchestrator</h3>
+        <p>Active skills auto-format into OpenAI/Gemini-compatible function definitions.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section id="architecture" style="background:var(--bg-alt)">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">How It Works</div>
+      <h2>System Architecture</h2>
+      <p class="section-sub">From client request to audited execution — every step is validated and logged.</p>
+    </div>
+    <div class="architecture">
+      <div class="arch-flow">
+        <div class="arch-node"><div class="arch-node-title">Client / Agent</div><div class="arch-node-sub">Prompt + JWT</div></div>
+        <span class="arch-arrow">→</span>
+        <div class="arch-node"><div class="arch-node-title">Auth Gate</div><div class="arch-node-sub">Verify JWT · org_id</div></div>
+        <span class="arch-arrow">→</span>
+        <div class="arch-node"><div class="arch-node-title">LLM Orchestrator</div><div class="arch-node-sub">Format · Select</div></div>
+        <span class="arch-arrow">→</span>
+        <div class="arch-node"><div class="arch-node-title">Schema Validator</div><div class="arch-node-sub">Validate payload</div></div>
+        <span class="arch-arrow">→</span>
+        <div class="arch-node"><div class="arch-node-title">Executor</div><div class="arch-node-sub">Run + Audit log</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- QUICK START -->
+<section id="quickstart">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">Get Running</div>
+      <h2>Quick Start in 5 Minutes</h2>
+      <p class="section-sub">Clone, install, seed, and run. No external services required.</p>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div></div>
+<pre><span class="code-comment"># Clone and install</span>
+<span class="code-func">git</span> clone https://github.com/rizbot4u/jarvis-skills-registry.git
+<span class="code-func">cd</span> jarvis-skills-registry
+<span class="code-func">pip</span> install -r requirements.txt
+
+<span class="code-comment"># Seed test users</span>
+<span class="code-func">python</span> seed_users.py
+
+<span class="code-comment"># Start the API</span>
+<span class="code-func">uvicorn</span> app.main:app --reload
+
+<span class="code-comment"># Open Swagger UI</span>
+<span class="code-comment"># http://localhost:8000/docs</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- API -->
+<section id="api" style="background:var(--bg-alt)">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">Reference</div>
+      <h2>Core API Endpoints</h2>
+      <p class="section-sub">Full OpenAPI 3.1 spec at <code>/docs</code> when running.</p>
+    </div>
+    <table class="api-table">
+      <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><span class="method post">POST</span></td><td><code>/token</code></td><td>Authenticate and receive a JWT</td></tr>
+        <tr><td><span class="method get">GET</span></td><td><code>/skills</code></td><td>List skills for your organization</td></tr>
+        <tr><td><span class="method post">POST</span></td><td><code>/skills</code></td><td>Create a new skill draft</td></tr>
+        <tr><td><span class="method post">POST</span></td><td><code>/skills/{id}/versions</code></td><td>Create a new immutable version</td></tr>
+        <tr><td><span class="method post">POST</span></td><td><code>/skills/{id}/activate</code></td><td>Activate a version (owner only)</td></tr>
+        <tr><td><span class="method post">POST</span></td><td><code>/skills/{id}/execute</code></td><td>Execute a skill with schema validation</td></tr>
+        <tr><td><span class="method get">GET</span></td><td><code>/skills/active</code></td><td>List only active skills</td></tr>
+        <tr><td><span class="method del">DELETE</span></td><td><code>/skills/{id}</code></td><td>Disable a skill</td></tr>
+        <tr><td><span class="method post">POST</span></td><td><code>/agent/run</code></td><td>Run the LLM Agent Orchestrator</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- AGENT DEMO -->
+<section id="agent">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">Agent Orchestrator</div>
+      <h2>Turn User Prompts into Tool Calls</h2>
+      <p class="section-sub">The orchestrator discovers your active skills, formats them for any LLM, and executes the chosen tool.</p>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div></div>
+<pre><span class="code-comment">// Request</span>
+<span class="code-key">POST</span> /agent/run
+{
+  <span class="code-string">"prompt"</span>: <span class="code-string">"Approve invoice #12345"</span>,
+  <span class="code-string">"payload"</span>: {
+    <span class="code-string">"skill_id"</span>: 1,
+    <span class="code-string">"arguments"</span>: { <span class="code-string">"invoice_id"</span>: 12345, <span class="code-string">"amount"</span>: 250.0 }
+  }
+}
+
+<span class="code-comment">// Response</span>
+{
+  <span class="code-string">"prompt"</span>: <span class="code-string">"Approve invoice #12345"</span>,
+  <span class="code-string">"selected_skill_id"</span>: 1,
+  <span class="code-string">"execution_response"</span>: {
+    <span class="code-string">"skill"</span>: <span class="code-string">"Invoice Approver"</span>,
+    <span class="code-string">"status"</span>: <span class="code-string">"executed"</span>,
+    <span class="code-string">"organization_id"</span>: 1,
+    <span class="code-string">"version"</span>: 1
+  }
+}</pre>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing" style="background:var(--bg-alt)">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">Pricing</div>
+      <h2>Open Core, Production Ready</h2>
+      <p class="section-sub">Start free with the open-source core. Upgrade for hosted infrastructure and support.</p>
+    </div>
+    <div class="pricing-grid">
+      <div class="price-card">
+        <div class="price-name">Open Source</div>
+        <div class="price-amount">$0<span>/forever</span></div>
+        <div class="price-desc">Self-hosted core with SQLite.</div>
+        <ul class="price-features">
+          <li>Full REST API</li>
+          <li>JWT auth & RBAC</li>
+          <li>Immutable versioning</li>
+          <li>Audit logging</li>
+          <li>Mock agent orchestrator</li>
+        </ul>
+      </div>
+      <div class="price-card featured">
+        <div class="price-name">Developer</div>
+        <div class="price-amount">$49<span>/month</span></div>
+        <div class="price-desc">Hosted PostgreSQL + rate limits.</div>
+        <ul class="price-features">
+          <li>Everything in Open Source</li>
+          <li>Managed PostgreSQL</li>
+          <li>Admin dashboard</li>
+          <li>Rate limiting</li>
+          <li>1,000 executions / mo</li>
+        </ul>
+      </div>
+      <div class="price-card">
+        <div class="price-name">Business</div>
+        <div class="price-amount">$499<span>/month</span></div>
+        <div class="price-desc">For production AI workflows.</div>
+        <ul class="price-features">
+          <li>Everything in Developer</li>
+          <li>10,000 executions / mo</li>
+          <li>Priority support</li>
+          <li>Audit reports</li>
+        </ul>
+      </div>
+      <div class="price-card">
+        <div class="price-name">Enterprise</div>
+        <div class="price-amount">Custom</div>
+        <div class="price-desc">White-label & compliance.</div>
+        <ul class="price-features">
+          <li>Everything in Business</li>
+          <li>Private cloud deploy</li>
+          <li>SOC2 / GDPR reports</li>
+          <li>24/7 SLA</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section>
+  <div class="container">
+    <div class="final-cta">
+      <h2>Ready to give your AI agents safe tools?</h2>
+      <p>Clone the repo, run the tests, and see the full pipeline in action — in under 5 minutes.</p>
+      <div class="cta-group">
+        <a href="#quickstart" class="btn btn-primary">Get Started Free</a>
+        <a href="https://github.com/rizbot4u/jarvis-skills-registry" target="_blank" class="btn btn-secondary">View Source</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-links">
+      <a href="#features">Features</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#api">API</a>
+      <a href="#pricing">Pricing</a>
+      <a href="https://github.com/rizbot4u/jarvis-skills-registry" target="_blank">GitHub</a>
+      <a href="mailto:rizbot4u@proton.me">Contact</a>
+    </div>
+    <p>© 2026 Jarvis AI COO Skill Registry · Built with FastAPI, SQLAlchemy, and JWT.</p>
+  </div>
+</footer>
+
+</div>
+
+<script>
+  // Skip intro function
+  function skipIntro(){
+    document.getElementById('intro').classList.add('hidden');
+    document.getElementById('main').classList.remove('hidden');
+    window.scrollTo(0,0);
+  }
+
+  // Auto-hide intro after 21 seconds
+  setTimeout(skipIntro, 21000);
+
+  // Allow pressing Escape to skip
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape') skipIntro();
+  });
+</script>
+
+</body>
+</html>
