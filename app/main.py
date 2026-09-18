@@ -4,11 +4,14 @@ from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any
 from pydantic import BaseModel
 from app.routes import skills
-from app.routers import execution
+# from app.routers import execution  # disabled: collides with routes/skills.py
 from app.database import SessionLocal, engine
 from app import models
 from app.auth import create_access_token, authenticate_user, get_current_user
 from app.services.agent_orchestrator import JarvisAgentOrchestrator
+
+from dotenv import load_dotenv
+load_dotenv()
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -16,7 +19,7 @@ app = FastAPI(title="Jarvis AI COO Skill Registry")
 
 # Include routers
 app.include_router(skills.router)
-app.include_router(execution.router)
+# app.include_router(execution.router)  # disabled: collides with routes/skills.py
 
 def get_db():
     db = SessionLocal()

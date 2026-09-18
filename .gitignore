@@ -1,33 +1,15 @@
-﻿# Virtual environment
 venv/
-env/
-ENV/
-
-# Python cache
 __pycache__/
-*.py[cod]
-*$py.class
-.Python
-.pytest_cache/
-
-# Database
-*.db
-*.sqlite3
-
-# Environment variables
+*.pyc
+*.pyo
+*.pyd
 .env
-.env.local
-.env.*.local
-
-# Logs
+.env.*
+!.env.example
+skills.db
+skills.db-journal
 *.log
-pytest_error.txt
-
-# IDE
-.vscode/
-.idea/
-*.swp
-
-# OS
+uvicorn.log
+*.pre-bridge
+*.pre-hardening
 .DS_Store
-Thumbs.db

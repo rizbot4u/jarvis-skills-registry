@@ -5,9 +5,7 @@ from app import crud, schemas, models
 from app.database import SessionLocal, engine
 from app.auth import get_current_org_id, get_current_user
 import json
-
-models.Base.metadata.create_all(bind=engine)
-
+from app.bridge_dispatcher import execute_skill_with_bridge_routing
 router = APIRouter()
 
 def get_db():
@@ -172,19 +170,16 @@ def execute_skill(
         validated_input = validate_payload(version.configuration, payload)
     except Exception as e:
         raise HTTPException(status_code=422, detail=str(e))
-    
+
     # Log execution
     crud.log_action(db, org_id, actor, f"executed_skill_{skill_id}", version.id)
-    
-    return {
-        "skill": skill.name,
-        "status": "executed",
-        "result": "Skill executed with validation",
-        "input": validated_input,
-        "executed_by": actor,
-        "organization_id": org_id,
-        "version": version.version_number
-    }
 
+    return execute_skill_with_bridge_routing(
+        skill=skill,
+        active_version=version,
+        parameters=validated_input,
+        actor=actor,
+        org_id=org_id,
+    )
 
 
