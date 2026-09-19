@@ -1,0 +1,6 @@
+#!/home/nova/jarvis-skills-registry-fresh/venv/bin/python3.10
+import sys
+from rsa.cli import sign
+if __name__ == '__main__':
+    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    sys.exit(sign())

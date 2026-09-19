@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Jarvis Skill Registry — MCP Server
+Jarvis Skill Registry — MCP Server (SDK v2)
 Wraps FastAPI endpoints as MCP tools.
 """
 
 import os
 import httpx
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -16,7 +16,7 @@ BASE_URL = os.getenv("JARVIS_URL", "http://127.0.0.1:8000")
 DEFAULT_USER = os.getenv("JARVIS_USER", "owner1")
 DEFAULT_PASS = os.getenv("JARVIS_PASS", "password123")
 
-mcp = FastMCP("jarvis-registry")
+mcp = MCPServer("jarvis-registry", version="1.0.0")
 
 # Cache token
 _token_cache = {"token": None}
